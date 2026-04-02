@@ -59,8 +59,9 @@ create trigger set_updated_at
 
 -- ------------------------------------------------------------
 -- policies
--- product_type: medicare_advantage | medicare_supplement | pdp | life | health
--- status:       active | pending | lapsed | terminated
+-- product_type:      medicare_advantage | medicare_supplement | pdp | life | health | dental | ancillary
+-- status:            active | pending | lapsed | terminated
+-- renewal_behavior:  annual_reselection | ongoing | term_expiration
 -- ------------------------------------------------------------
 create table policies (
   id                         uuid primary key default gen_random_uuid(),
@@ -75,6 +76,7 @@ create table policies (
   renewal_date               date,
   premium_amount             numeric(10, 2),
   expected_commission_amount numeric(10, 2),
+  renewal_behavior           text,           -- annual_reselection | ongoing | term_expiration
   created_at                 timestamptz not null default now(),
   updated_at                 timestamptz not null default now()
 );

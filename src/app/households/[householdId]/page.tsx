@@ -131,6 +131,32 @@ export default async function HouseholdDetailPage({
   const memberRows = (people ?? []) as Person[];
   const policyRows = policies ?? [];
 
+  // ── summary strip values ──────────────────────────────────────────────────
+  const livePolicies = policyRows.filter(
+    (p) => p.status === "active" || p.status === "pending"
+  );
+
+  const activePolicyCount = livePolicies.length;
+
+  const nextRenewal =
+    livePolicies
+      .filter((p) => p.renewal_date !== null)
+      .sort((a, b) => (a.renewal_date! > b.renewal_date! ? 1 : -1))[0]
+      ?.renewal_date ?? null;
+
+  const totalCommission = livePolicies.reduce(
+    (sum, p) => sum + (p.expected_commission_amount ?? 0),
+    0
+  );
+
+  const summary = [
+    { label: "Active Policies",    value: String(activePolicyCount)      },
+    { label: "Next Renewal",       value: formatDate(nextRenewal)        },
+    { label: "Est. Commission",    value: formatCommission(totalCommission) },
+    { label: "Open Alerts",        value: "0"                            },
+    { label: "Opportunities",      value: "0"                            },
+  ];
+
   const addressParts = [
     household.address_line1,
     household.address_line2,
@@ -162,14 +188,39 @@ export default async function HouseholdDetailPage({
         )}
       </div>
 
+      {/* summary strip */}
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {summary.map(({ label, value }) => (
+          <div
+            key={label}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3"
+          >
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              {label}
+            </p>
+            <p className="mt-1.5 text-lg font-semibold tabular-nums text-slate-900">
+              {value}
+            </p>
+          </div>
+        ))}
+      </div>
+
       {/* people */}
       <section className="mt-10">
-        <h2 className="text-base font-semibold text-slate-800">
-          People{" "}
-          <span className="font-normal text-slate-400">
-            ({memberRows.length})
-          </span>
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold text-slate-800">
+            People{" "}
+            <span className="font-normal text-slate-400">
+              ({memberRows.length})
+            </span>
+          </h2>
+          <Link
+            href={`/households/${householdId}/people/new`}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+          >
+            Add Person
+          </Link>
+        </div>
 
         <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-sm">
@@ -221,12 +272,20 @@ export default async function HouseholdDetailPage({
 
       {/* policies */}
       <section className="mt-10">
-        <h2 className="text-base font-semibold text-slate-800">
-          Policies{" "}
-          <span className="font-normal text-slate-400">
-            ({policyRows.length})
-          </span>
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold text-slate-800">
+            Policies{" "}
+            <span className="font-normal text-slate-400">
+              ({policyRows.length})
+            </span>
+          </h2>
+          <Link
+            href={`/households/${householdId}/policies/new`}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+          >
+            Add Policy
+          </Link>
+        </div>
 
         <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-sm">

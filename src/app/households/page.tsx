@@ -41,10 +41,20 @@ export default async function HouseholdsPage() {
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-semibold">Households</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        {rows.length} household{rows.length !== 1 ? "s" : ""}
-      </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Households</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {rows.length} household{rows.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+        <Link
+          href="/households/new"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          New Household
+        </Link>
+      </div>
 
       <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
