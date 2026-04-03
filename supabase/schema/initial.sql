@@ -77,6 +77,7 @@ create table policies (
   premium_amount             numeric(10, 2),
   expected_commission_amount numeric(10, 2),
   renewal_behavior           text,           -- annual_reselection | ongoing | term_expiration
+  review_due_date            date,           -- for ongoing policies: next scheduled review date
   created_at                 timestamptz not null default now(),
   updated_at                 timestamptz not null default now()
 );

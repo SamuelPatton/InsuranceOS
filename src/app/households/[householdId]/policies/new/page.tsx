@@ -35,6 +35,7 @@ export default async function NewPolicyPage({
     const personId   = formData.get("person_id")?.toString()   ?? "";
     const carrier    = formData.get("carrier")?.toString().trim() ?? "";
     const productType = formData.get("product_type")?.toString() ?? "";
+    const renewalBehavior = formData.get("renewal_behavior")?.toString() || null;
 
     if (!personId || !carrier || !productType) {
       redirect(`/households/${householdId}/policies/new?error=fields`);
@@ -42,6 +43,13 @@ export default async function NewPolicyPage({
 
     const premiumRaw    = formData.get("premium_amount")?.toString().trim();
     const commissionRaw = formData.get("expected_commission_amount")?.toString().trim();
+    const reviewDueDateRaw = formData.get("review_due_date")?.toString() || null;
+    const terminationDateRaw = formData.get("termination_date")?.toString() || null;
+
+    const reviewDueDate =
+      renewalBehavior === "ongoing" ? reviewDueDateRaw : null;
+    const terminationDate =
+      renewalBehavior === "term_expiration" ? terminationDateRaw : null;
 
     const { error: dbError } = await supabase.from("policies").insert({
       household_id:               householdId,
@@ -50,9 +58,11 @@ export default async function NewPolicyPage({
       product_type:               productType,
       plan_name:                  formData.get("plan_name")?.toString().trim()        || null,
       status:                     formData.get("status")?.toString()                  || "active",
-      renewal_behavior:           formData.get("renewal_behavior")?.toString()        || null,
+      renewal_behavior:           renewalBehavior,
       effective_date:             formData.get("effective_date")?.toString()          || null,
       renewal_date:               formData.get("renewal_date")?.toString()            || null,
+      review_due_date:            reviewDueDate,
+      termination_date:           terminationDate,
       premium_amount:             premiumRaw    ? parseFloat(premiumRaw)    : null,
       expected_commission_amount: commissionRaw ? parseFloat(commissionRaw) : null,
     });

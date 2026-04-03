@@ -6,9 +6,13 @@
 --              life, health, dental, ancillary
 --
 -- renewal_behavior values:
---   annual_reselection  — MAPD, PDP, health (must act each year)
+--   annual_reselection  — MAPD, PDP, ACA health (must act each year)
 --   ongoing             — Medigap, whole/final-expense life, dental, ancillary
---   term_expiration     — term life policies with a fixed end date
+--   term_expiration     — term life with a fixed end date
+--
+-- review_due_date: set for ongoing policies only (null for all others)
+--   Medigap/life: policy anniversary month
+--   Dental/ancillary: rolling 12-month cadence from effective date
 --
 -- Edge cases:
 --   Rodriguez  — MAPD with null renewal_date (missing data)
@@ -124,312 +128,370 @@ insert into people (id, household_id, first_name, last_name, date_of_birth, rela
 -- Columns: id, household_id, person_id,
 --          carrier, plan_name, product_type, status,
 --          effective_date, termination_date, renewal_date,
---          premium_amount, expected_commission_amount, renewal_behavior
+--          premium_amount, expected_commission_amount,
+--          renewal_behavior, review_due_date
+--
+-- review_due_date is only set for ongoing policies.
+-- All annual_reselection and term_expiration rows leave it null.
 -- ------------------------------------------------------------
 insert into policies (
   id, household_id, person_id,
   carrier, plan_name, product_type, status,
   effective_date, termination_date, renewal_date,
   premium_amount, expected_commission_amount,
-  renewal_behavior
+  renewal_behavior, review_due_date
 ) values
 
   -- ── Martinez ───────────────────────────────────────────────
+  -- Rosa: MAPD — annual_reselection, no review_due_date
   ('c1000000-0000-0000-0000-000000000001',
    'a1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001',
    'Humana', 'Gold Plus H5619-014', 'medicare_advantage', 'active',
-   '2025-01-01', null, '2026-01-01', 0.00, 600.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 0.00, 600.00, 'annual_reselection', null),
 
+  -- Rosa: PDP
   ('c1000000-0000-0000-0000-000000000002',
    'a1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001',
    'SilverScript', 'Choice Plus', 'pdp', 'active',
-   '2025-01-01', null, '2026-01-01', 24.70, 100.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 24.70, 100.00, 'annual_reselection', null),
 
+  -- Carlos: Medigap Plan G — ongoing, review on policy anniversary (Jul)
   ('c1000000-0000-0000-0000-000000000003',
    'a1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000002',
    'Aetna', 'Medicare Supplement Plan G', 'medicare_supplement', 'active',
-   '2021-07-01', null, '2026-07-01', 145.00, 200.00, 'ongoing'),
+   '2021-07-01', null, '2026-07-01', 145.00, 200.00, 'ongoing', '2026-07-01'),
 
   -- ── Johnson ────────────────────────────────────────────────
+  -- Patricia: Term Life — term_expiration, no review_due_date
   ('c1000000-0000-0000-0000-000000000004',
    'a1000000-0000-0000-0000-000000000002', 'b1000000-0000-0000-0000-000000000003',
    'Pacific Life', '20-Year Term 500K', 'life', 'active',
-   '2022-04-01', null, '2026-04-01', 67.00, 804.00, 'term_expiration'),
+   '2022-04-01', null, '2026-04-01', 67.00, 804.00, 'term_expiration', null),
 
   -- ── Thompson ───────────────────────────────────────────────
+  -- Harold: Medigap Plan G — review on policy anniversary (Mar)
   ('c1000000-0000-0000-0000-000000000005',
    'a1000000-0000-0000-0000-000000000003', 'b1000000-0000-0000-0000-000000000004',
    'UnitedHealthcare', 'AARP Medicare Supplement Plan G', 'medicare_supplement', 'active',
-   '2019-03-01', null, '2026-03-01', 195.00, 265.00, 'ongoing'),
+   '2019-03-01', null, '2026-03-01', 195.00, 265.00, 'ongoing', '2026-03-01'),
 
+  -- Harold: PDP
   ('c1000000-0000-0000-0000-000000000006',
    'a1000000-0000-0000-0000-000000000003', 'b1000000-0000-0000-0000-000000000004',
    'SilverScript', 'Enhanced Plus', 'pdp', 'active',
-   '2025-01-01', null, '2026-01-01', 29.40, 100.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 29.40, 100.00, 'annual_reselection', null),
 
+  -- Evelyn: MAPD
   ('c1000000-0000-0000-0000-000000000007',
    'a1000000-0000-0000-0000-000000000003', 'b1000000-0000-0000-0000-000000000005',
    'Aetna', 'Medicare Advantage PPO H0543-027', 'medicare_advantage', 'active',
-   '2025-01-01', null, '2026-01-01', 0.00, 572.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 0.00, 572.00, 'annual_reselection', null),
 
   -- ── Williams ───────────────────────────────────────────────
+  -- Dorothy: Medigap Plan N — review on anniversary (Feb)
   ('c1000000-0000-0000-0000-000000000008',
    'a1000000-0000-0000-0000-000000000004', 'b1000000-0000-0000-0000-000000000006',
    'Cigna', 'Medicare Supplement Plan N', 'medicare_supplement', 'active',
-   '2020-02-01', null, '2026-02-01', 148.00, 215.00, 'ongoing'),
+   '2020-02-01', null, '2026-02-01', 148.00, 215.00, 'ongoing', '2026-05-01'),
 
+  -- Dorothy: Dental — review on anniversary (Feb)
   ('c1000000-0000-0000-0000-000000000009',
    'a1000000-0000-0000-0000-000000000004', 'b1000000-0000-0000-0000-000000000006',
    'Ameritas', 'Dental Preferred PPO', 'dental', 'active',
-   '2020-02-01', null, '2026-02-01', 33.00, 78.00, 'ongoing'),
+   '2020-02-01', null, '2026-02-01', 33.00, 78.00, 'ongoing', '2026-05-01'),
 
   -- ── Anderson ───────────────────────────────────────────────
+  -- Robert: MAPD
   ('c1000000-0000-0000-0000-000000000010',
    'a1000000-0000-0000-0000-000000000005', 'b1000000-0000-0000-0000-000000000007',
    'Humana', 'Choice Plus H5619-014', 'medicare_advantage', 'active',
-   '2024-01-01', null, '2026-01-01', 0.00, 557.00, 'annual_reselection'),
+   '2024-01-01', null, '2026-01-01', 0.00, 557.00, 'annual_reselection', null),
 
+  -- Margaret: MAPD
   ('c1000000-0000-0000-0000-000000000011',
    'a1000000-0000-0000-0000-000000000005', 'b1000000-0000-0000-0000-000000000008',
    'WellCare', 'Advantage HMO H4461-002', 'medicare_advantage', 'active',
-   '2025-01-01', null, '2026-01-01', 18.00, 587.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 18.00, 587.00, 'annual_reselection', null),
 
+  -- Margaret: PDP
   ('c1000000-0000-0000-0000-000000000012',
    'a1000000-0000-0000-0000-000000000005', 'b1000000-0000-0000-0000-000000000008',
    'WellCare', 'Value Rx S5601-003', 'pdp', 'active',
-   '2025-01-01', null, '2026-01-01', 22.50, 100.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 22.50, 100.00, 'annual_reselection', null),
 
   -- ── Davis ──────────────────────────────────────────────────
+  -- Gerald: Health (annual_reselection)
   ('c1000000-0000-0000-0000-000000000013',
    'a1000000-0000-0000-0000-000000000006', 'b1000000-0000-0000-0000-000000000009',
    'Blue Cross Blue Shield', 'Blue Select PPO', 'health', 'active',
-   '2024-03-01', null, '2026-03-01', 485.00, 720.00, 'annual_reselection'),
+   '2024-03-01', null, '2026-03-01', 485.00, 720.00, 'annual_reselection', null),
 
+  -- Gerald: Term Life
   ('c1000000-0000-0000-0000-000000000014',
    'a1000000-0000-0000-0000-000000000006', 'b1000000-0000-0000-0000-000000000009',
    'Mutual of Omaha', '15-Year Term 300K', 'life', 'active',
-   '2020-09-01', null, '2026-09-01', 78.00, 936.00, 'term_expiration'),
+   '2020-09-01', null, '2026-09-01', 78.00, 936.00, 'term_expiration', null),
 
+  -- Susan: Health
   ('c1000000-0000-0000-0000-000000000015',
    'a1000000-0000-0000-0000-000000000006', 'b1000000-0000-0000-0000-000000000010',
    'Blue Cross Blue Shield', 'Blue Select PPO', 'health', 'active',
-   '2024-03-01', null, '2026-03-01', 440.00, 660.00, 'annual_reselection'),
+   '2024-03-01', null, '2026-03-01', 440.00, 660.00, 'annual_reselection', null),
 
   -- ── Garcia ─────────────────────────────────────────────────
+  -- Maria: Medigap Plan G — review on anniversary (Jan)
   ('c1000000-0000-0000-0000-000000000016',
    'a1000000-0000-0000-0000-000000000007', 'b1000000-0000-0000-0000-000000000011',
    'Aetna', 'Medicare Supplement Plan G', 'medicare_supplement', 'active',
-   '2017-01-01', null, '2026-01-01', 178.00, 240.00, 'ongoing'),
+   '2017-01-01', null, '2026-01-01', 178.00, 240.00, 'ongoing', '2026-07-01'),
 
+  -- Maria: PDP
   ('c1000000-0000-0000-0000-000000000017',
    'a1000000-0000-0000-0000-000000000007', 'b1000000-0000-0000-0000-000000000011',
    'SilverScript', 'Choice Plus', 'pdp', 'active',
-   '2025-01-01', null, '2026-01-01', 24.70, 100.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 24.70, 100.00, 'annual_reselection', null),
 
+  -- Jose: MAPD
   ('c1000000-0000-0000-0000-000000000018',
    'a1000000-0000-0000-0000-000000000007', 'b1000000-0000-0000-0000-000000000012',
    'WellCare', 'Healthy Florida H1234-088', 'medicare_advantage', 'active',
-   '2025-01-01', null, '2026-01-01', 0.00, 611.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 0.00, 611.00, 'annual_reselection', null),
 
+  -- Elena: Health
   ('c1000000-0000-0000-0000-000000000019',
    'a1000000-0000-0000-0000-000000000007', 'b1000000-0000-0000-0000-000000000013',
    'Blue Cross Blue Shield', 'Blue Choice HMO', 'health', 'active',
-   '2023-10-01', null, '2025-10-01', 392.00, 470.00, 'annual_reselection'),
+   '2023-10-01', null, '2025-10-01', 392.00, 470.00, 'annual_reselection', null),
 
-  -- ── Rodriguez (null renewal_date — missing data) ────────────
+  -- ── Rodriguez (null renewal_date — missing data) ───────────
   ('c1000000-0000-0000-0000-000000000020',
    'a1000000-0000-0000-0000-000000000008', 'b1000000-0000-0000-0000-000000000014',
    'Humana', 'Value Plus H0028-043', 'medicare_advantage', 'active',
-   '2024-01-01', null, null, 0.00, 557.00, 'annual_reselection'),
+   '2024-01-01', null, null, 0.00, 557.00, 'annual_reselection', null),
 
   -- ── Wilson ─────────────────────────────────────────────────
+  -- Charles: Medigap Plan G — review on anniversary (Mar)
   ('c1000000-0000-0000-0000-000000000021',
    'a1000000-0000-0000-0000-000000000009', 'b1000000-0000-0000-0000-000000000015',
    'Mutual of Omaha', 'Medicare Supplement Plan G', 'medicare_supplement', 'active',
-   '2015-03-01', null, '2026-03-01', 212.00, 290.00, 'ongoing'),
+   '2015-03-01', null, '2026-03-01', 212.00, 290.00, 'ongoing', '2026-09-01'),
 
+  -- Charles: PDP
   ('c1000000-0000-0000-0000-000000000022',
    'a1000000-0000-0000-0000-000000000009', 'b1000000-0000-0000-0000-000000000015',
    'SilverScript', 'Enhanced Plus S5601-052', 'pdp', 'active',
-   '2025-01-01', null, '2026-01-01', 36.80, 100.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 36.80, 100.00, 'annual_reselection', null),
 
+  -- Charles: Dental — review 12 months from effective
   ('c1000000-0000-0000-0000-000000000023',
    'a1000000-0000-0000-0000-000000000009', 'b1000000-0000-0000-0000-000000000015',
    'Delta Dental', 'Complete Care PPO', 'dental', 'active',
-   '2015-03-01', null, '2026-03-01', 38.00, 68.00, 'ongoing'),
+   '2015-03-01', null, '2026-03-01', 38.00, 68.00, 'ongoing', '2026-09-01'),
 
+  -- Betty: Medigap Plan G — review on anniversary (Aug)
   ('c1000000-0000-0000-0000-000000000024',
    'a1000000-0000-0000-0000-000000000009', 'b1000000-0000-0000-0000-000000000016',
    'UnitedHealthcare', 'AARP Medicare Supplement Plan G', 'medicare_supplement', 'active',
-   '2017-08-01', null, '2026-08-01', 197.00, 268.00, 'ongoing'),
+   '2017-08-01', null, '2026-08-01', 197.00, 268.00, 'ongoing', '2026-08-01'),
 
+  -- Betty: PDP
   ('c1000000-0000-0000-0000-000000000025',
    'a1000000-0000-0000-0000-000000000009', 'b1000000-0000-0000-0000-000000000016',
    'WellCare', 'Essential Rx H6034-001', 'pdp', 'active',
-   '2025-01-01', null, '2026-01-01', 19.40, 100.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 19.40, 100.00, 'annual_reselection', null),
 
   -- ── Moore ──────────────────────────────────────────────────
+  -- Helen: Medigap Plan F — review on anniversary (Jun)
   ('c1000000-0000-0000-0000-000000000026',
    'a1000000-0000-0000-0000-000000000010', 'b1000000-0000-0000-0000-000000000017',
    'Aetna', 'Medicare Supplement Plan F', 'medicare_supplement', 'active',
-   '2012-06-01', null, '2026-06-01', 248.00, 310.00, 'ongoing'),
+   '2012-06-01', null, '2026-06-01', 248.00, 310.00, 'ongoing', '2026-06-01'),
 
+  -- Helen: Final Expense Whole Life — review on anniversary (Jun)
   ('c1000000-0000-0000-0000-000000000027',
    'a1000000-0000-0000-0000-000000000010', 'b1000000-0000-0000-0000-000000000017',
    'Transamerica', 'Final Expense Whole Life 15K', 'life', 'active',
-   '2018-06-01', null, '2026-06-01', 87.00, 310.00, 'ongoing'),
+   '2018-06-01', null, '2026-06-01', 87.00, 310.00, 'ongoing', '2026-06-01'),
 
+  -- Helen: Dental
   ('c1000000-0000-0000-0000-000000000028',
    'a1000000-0000-0000-0000-000000000010', 'b1000000-0000-0000-0000-000000000017',
    'Ameritas', 'Preferred Plus Dental PPO', 'dental', 'active',
-   '2018-06-01', null, '2026-06-01', 28.00, 58.00, 'ongoing'),
+   '2018-06-01', null, '2026-06-01', 28.00, 58.00, 'ongoing', '2026-06-01'),
 
   -- ── Taylor ─────────────────────────────────────────────────
+  -- James: Term Life
   ('c1000000-0000-0000-0000-000000000029',
    'a1000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000018',
    'Pacific Life', '20-Year Term 400K', 'life', 'active',
-   '2015-02-01', null, '2026-02-01', 84.00, 1008.00, 'term_expiration'),
+   '2015-02-01', null, '2026-02-01', 84.00, 1008.00, 'term_expiration', null),
 
+  -- James: Health
   ('c1000000-0000-0000-0000-000000000030',
    'a1000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000018',
    'Blue Cross Blue Shield', 'Blue Advantage PPO', 'health', 'active',
-   '2024-01-01', null, '2026-01-01', 524.00, 786.00, 'annual_reselection'),
+   '2024-01-01', null, '2026-01-01', 524.00, 786.00, 'annual_reselection', null),
 
+  -- Linda: Health
   ('c1000000-0000-0000-0000-000000000031',
    'a1000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000019',
    'Blue Cross Blue Shield', 'Blue Advantage PPO', 'health', 'active',
-   '2024-01-01', null, '2026-01-01', 480.00, 720.00, 'annual_reselection'),
+   '2024-01-01', null, '2026-01-01', 480.00, 720.00, 'annual_reselection', null),
 
   -- ── Jackson ────────────────────────────────────────────────
+  -- Clarence: Dental
   ('c1000000-0000-0000-0000-000000000032',
    'a1000000-0000-0000-0000-000000000012', 'b1000000-0000-0000-0000-000000000020',
    'Delta Dental', 'Dental Select PPO', 'dental', 'active',
-   '2021-12-01', null, '2026-12-01', 31.00, 60.00, 'ongoing'),
+   '2021-12-01', null, '2026-12-01', 31.00, 60.00, 'ongoing', '2026-12-01'),
 
+  -- Clarence: Hospital Indemnity
   ('c1000000-0000-0000-0000-000000000033',
    'a1000000-0000-0000-0000-000000000012', 'b1000000-0000-0000-0000-000000000020',
    'Aflac', 'Hospital Indemnity Classic', 'ancillary', 'active',
-   '2021-12-01', null, '2026-12-01', 22.00, 120.00, 'ongoing'),
+   '2021-12-01', null, '2026-12-01', 22.00, 120.00, 'ongoing', '2026-12-01'),
 
   -- ── Lee ────────────────────────────────────────────────────
+  -- David: MAPD
   ('c1000000-0000-0000-0000-000000000034',
    'a1000000-0000-0000-0000-000000000013', 'b1000000-0000-0000-0000-000000000021',
    'Cigna', 'Achieve Plus H0028-115', 'medicare_advantage', 'active',
-   '2023-01-01', null, '2026-01-01', 0.00, 587.00, 'annual_reselection'),
+   '2023-01-01', null, '2026-01-01', 0.00, 587.00, 'annual_reselection', null),
 
+  -- David: Final Expense Whole Life — review on anniversary (Jul)
   ('c1000000-0000-0000-0000-000000000035',
    'a1000000-0000-0000-0000-000000000013', 'b1000000-0000-0000-0000-000000000021',
    'Mutual of Omaha', 'Final Expense Whole Life 25K', 'life', 'active',
-   '2016-07-01', null, '2026-07-01', 94.00, 340.00, 'ongoing'),
+   '2016-07-01', null, '2026-07-01', 94.00, 340.00, 'ongoing', '2026-07-01'),
 
+  -- Nancy: Medigap Plan G — review on anniversary (Oct)
   ('c1000000-0000-0000-0000-000000000036',
    'a1000000-0000-0000-0000-000000000013', 'b1000000-0000-0000-0000-000000000022',
    'Aetna', 'Medicare Supplement Plan G', 'medicare_supplement', 'active',
-   '2018-10-01', null, '2026-10-01', 172.00, 235.00, 'ongoing'),
+   '2018-10-01', null, '2026-10-01', 172.00, 235.00, 'ongoing', '2026-10-01'),
 
-  -- ── Harris (lapsed health + active MAPD) ───────────────────
+  -- ── Harris ─────────────────────────────────────────────────
+  -- Barbara: Health — lapsed
   ('c1000000-0000-0000-0000-000000000037',
    'a1000000-0000-0000-0000-000000000014', 'b1000000-0000-0000-0000-000000000023',
    'Blue Cross Blue Shield', 'Blue Select PPO', 'health', 'lapsed',
-   '2023-01-01', '2024-01-01', '2024-01-01', 510.00, 765.00, 'annual_reselection'),
+   '2023-01-01', '2024-01-01', '2024-01-01', 510.00, 765.00, 'annual_reselection', null),
 
+  -- Barbara: MAPD
   ('c1000000-0000-0000-0000-000000000038',
    'a1000000-0000-0000-0000-000000000014', 'b1000000-0000-0000-0000-000000000023',
    'Humana', 'Value Plus H0028-043', 'medicare_advantage', 'active',
-   '2025-01-01', null, '2026-01-01', 0.00, 611.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 0.00, 611.00, 'annual_reselection', null),
 
   -- ── Clark ──────────────────────────────────────────────────
+  -- Thomas: Medigap Plan G — review on anniversary (Apr)
   ('c1000000-0000-0000-0000-000000000039',
    'a1000000-0000-0000-0000-000000000015', 'b1000000-0000-0000-0000-000000000024',
    'UnitedHealthcare', 'AARP Medicare Supplement Plan G', 'medicare_supplement', 'active',
-   '2014-04-01', null, '2026-04-01', 220.00, 300.00, 'ongoing'),
+   '2014-04-01', null, '2026-04-01', 220.00, 300.00, 'ongoing', '2026-04-01'),
 
+  -- Thomas: PDP
   ('c1000000-0000-0000-0000-000000000040',
    'a1000000-0000-0000-0000-000000000015', 'b1000000-0000-0000-0000-000000000024',
    'SilverScript', 'Choice Plus', 'pdp', 'active',
-   '2025-01-01', null, '2026-01-01', 24.70, 100.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 24.70, 100.00, 'annual_reselection', null),
 
+  -- Ruth: MAPD
   ('c1000000-0000-0000-0000-000000000041',
    'a1000000-0000-0000-0000-000000000015', 'b1000000-0000-0000-0000-000000000025',
    'Humana', 'Gold Plus H5619-014', 'medicare_advantage', 'active',
-   '2025-01-01', null, '2026-01-01', 0.00, 572.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 0.00, 572.00, 'annual_reselection', null),
 
+  -- Michael: Term Life
   ('c1000000-0000-0000-0000-000000000042',
    'a1000000-0000-0000-0000-000000000015', 'b1000000-0000-0000-0000-000000000026',
    'Pacific Life', '30-Year Term 500K', 'life', 'active',
-   '2019-03-01', null, '2026-03-01', 112.00, 1344.00, 'term_expiration'),
+   '2019-03-01', null, '2026-03-01', 112.00, 1344.00, 'term_expiration', null),
 
   -- ── Lewis ──────────────────────────────────────────────────
+  -- George: MAPD
   ('c1000000-0000-0000-0000-000000000043',
    'a1000000-0000-0000-0000-000000000016', 'b1000000-0000-0000-0000-000000000027',
    'Cigna', 'Preferred Medicare Plus H3916-002', 'medicare_advantage', 'active',
-   '2022-01-01', null, '2026-01-01', 23.00, 562.00, 'annual_reselection'),
+   '2022-01-01', null, '2026-01-01', 23.00, 562.00, 'annual_reselection', null),
 
+  -- George: Dental — review rolling 12 months
   ('c1000000-0000-0000-0000-000000000044',
    'a1000000-0000-0000-0000-000000000016', 'b1000000-0000-0000-0000-000000000027',
    'Ameritas', 'Dental PPO Plus', 'dental', 'active',
-   '2022-07-01', null, '2026-07-01', 35.00, 72.00, 'ongoing'),
+   '2022-07-01', null, '2026-07-01', 35.00, 72.00, 'ongoing', '2026-07-01'),
 
+  -- George: DVH Ancillary
   ('c1000000-0000-0000-0000-000000000045',
    'a1000000-0000-0000-0000-000000000016', 'b1000000-0000-0000-0000-000000000027',
    'Colonial Life', 'DVH Advantage', 'ancillary', 'active',
-   '2022-07-01', null, '2026-07-01', 29.00, 132.00, 'ongoing'),
+   '2022-07-01', null, '2026-07-01', 29.00, 132.00, 'ongoing', '2026-07-01'),
 
+  -- Virginia: MAPD
   ('c1000000-0000-0000-0000-000000000046',
    'a1000000-0000-0000-0000-000000000016', 'b1000000-0000-0000-0000-000000000028',
    'Cigna', 'Preferred Medicare Plus H3916-002', 'medicare_advantage', 'active',
-   '2022-01-01', null, '2026-01-01', 23.00, 562.00, 'annual_reselection'),
+   '2022-01-01', null, '2026-01-01', 23.00, 562.00, 'annual_reselection', null),
 
-  -- ── Robinson (pending enrollment) ──────────────────────────
+  -- ── Robinson (pending) ─────────────────────────────────────
   ('c1000000-0000-0000-0000-000000000047',
    'a1000000-0000-0000-0000-000000000017', 'b1000000-0000-0000-0000-000000000029',
    'Humana', 'HMO Value H1234-005', 'medicare_advantage', 'pending',
-   '2026-01-01', null, '2027-01-01', 0.00, 611.00, 'annual_reselection'),
+   '2026-01-01', null, '2027-01-01', 0.00, 611.00, 'annual_reselection', null),
 
   -- ── Walker ─────────────────────────────────────────────────
+  -- Edward: Medigap Plan N — review on anniversary (Jan)
   ('c1000000-0000-0000-0000-000000000048',
    'a1000000-0000-0000-0000-000000000018', 'b1000000-0000-0000-0000-000000000030',
    'Cigna', 'Medicare Supplement Plan N', 'medicare_supplement', 'active',
-   '2016-01-01', null, '2026-01-01', 162.00, 220.00, 'ongoing'),
+   '2016-01-01', null, '2026-01-01', 162.00, 220.00, 'ongoing', '2027-01-01'),
 
+  -- Edward: PDP
   ('c1000000-0000-0000-0000-000000000049',
    'a1000000-0000-0000-0000-000000000018', 'b1000000-0000-0000-0000-000000000030',
    'WellCare', 'Essential Rx H6034-001', 'pdp', 'active',
-   '2025-01-01', null, '2026-01-01', 19.40, 100.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 19.40, 100.00, 'annual_reselection', null),
 
+  -- Frances: MAPD
   ('c1000000-0000-0000-0000-000000000050',
    'a1000000-0000-0000-0000-000000000018', 'b1000000-0000-0000-0000-000000000031',
    'Aetna', 'Choice Plus H3656-011', 'medicare_advantage', 'active',
-   '2024-01-01', null, '2026-01-01', 0.00, 557.00, 'annual_reselection'),
+   '2024-01-01', null, '2026-01-01', 0.00, 557.00, 'annual_reselection', null),
 
+  -- Frances: Dental
   ('c1000000-0000-0000-0000-000000000051',
    'a1000000-0000-0000-0000-000000000018', 'b1000000-0000-0000-0000-000000000031',
    'Delta Dental', 'Preferred Plus PPO', 'dental', 'active',
-   '2024-01-01', null, '2026-01-01', 28.00, 60.00, 'ongoing'),
+   '2024-01-01', null, '2026-01-01', 28.00, 60.00, 'ongoing', '2027-01-01'),
 
   -- ── Hall (null renewal_date — missing data) ─────────────────
+  -- Marjorie: Medigap Plan G — ongoing, review_due_date set even without renewal_date
   ('c1000000-0000-0000-0000-000000000052',
    'a1000000-0000-0000-0000-000000000019', 'b1000000-0000-0000-0000-000000000032',
    'UnitedHealthcare', 'AARP Medicare Supplement Plan G', 'medicare_supplement', 'active',
-   '2020-03-01', null, null, 168.00, 230.00, 'ongoing'),
+   '2020-03-01', null, null, 168.00, 230.00, 'ongoing', '2026-09-01'),
 
   -- ── Allen ──────────────────────────────────────────────────
+  -- Raymond: MAPD
   ('c1000000-0000-0000-0000-000000000053',
    'a1000000-0000-0000-0000-000000000020', 'b1000000-0000-0000-0000-000000000033',
    'Humana', 'Gold Plus H5619-014', 'medicare_advantage', 'active',
-   '2025-01-01', null, '2026-01-01', 0.00, 557.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 0.00, 557.00, 'annual_reselection', null),
 
+  -- Raymond: PDP
   ('c1000000-0000-0000-0000-000000000054',
    'a1000000-0000-0000-0000-000000000020', 'b1000000-0000-0000-0000-000000000033',
    'SilverScript', 'Choice Plus', 'pdp', 'active',
-   '2025-01-01', null, '2026-01-01', 24.70, 100.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 24.70, 100.00, 'annual_reselection', null),
 
+  -- Gloria: MAPD
   ('c1000000-0000-0000-0000-000000000055',
    'a1000000-0000-0000-0000-000000000020', 'b1000000-0000-0000-0000-000000000034',
    'Humana', 'Gold Plus H5619-014', 'medicare_advantage', 'active',
-   '2025-01-01', null, '2026-01-01', 0.00, 557.00, 'annual_reselection'),
+   '2025-01-01', null, '2026-01-01', 0.00, 557.00, 'annual_reselection', null),
 
+  -- Gloria: PDP
   ('c1000000-0000-0000-0000-000000000056',
    'a1000000-0000-0000-0000-000000000020', 'b1000000-0000-0000-0000-000000000034',
    'SilverScript', 'Choice Plus', 'pdp', 'active',
-   '2025-01-01', null, '2026-01-01', 24.70, 100.00, 'annual_reselection');
+   '2025-01-01', null, '2026-01-01', 24.70, 100.00, 'annual_reselection', null);

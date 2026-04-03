@@ -1,33 +1,27 @@
 import { supabase } from "@/lib/supabase/client";
-import { RenewalFilters } from "./_components/renewal-filters";
 
-type RenewalRow = {
+type ReviewRow = {
   id: string;
   carrier: string;
   plan_name: string | null;
   product_type: string;
   status: string;
-  renewal_date: string;
+  review_due_date: string;
   expected_commission_amount: number | null;
   people: { first_name: string; last_name: string } | null;
   households: { id: string; name: string } | null;
 };
 
 const productTypeLabel: Record<string, string> = {
-  medicare_advantage:  "Medicare Advantage",
   medicare_supplement: "Medicare Supplement",
-  pdp:                 "Part D",
   life:                "Life",
-  health:              "Health",
   dental:              "Dental",
   ancillary:           "Ancillary",
 };
 
 const statusStyle: Record<string, string> = {
-  active:     "bg-emerald-50 text-emerald-700",
-  pending:    "bg-amber-50 text-amber-700",
-  lapsed:     "bg-red-50 text-red-700",
-  terminated: "bg-slate-100 text-slate-500",
+  active:  "bg-emerald-50 text-emerald-700",
+  pending: "bg-amber-50 text-amber-700",
 };
 
 function formatDate(dateStr: string): string {
@@ -49,22 +43,8 @@ function formatCommission(amount: number | null): string {
   }).format(amount);
 }
 
-export default async function RenewalsPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | undefined>>;
-}) {
-  const sp = await searchParams;
-
-  const status         = sp.status         ?? "all";
-  const product_type   = sp.product_type   ?? "all";
-  const carrier        = sp.carrier        ?? "all";
-  const renewal_window = sp.renewal_window ?? "all";
-
-  // ── build policies query ──────────────────────────────────────────────────
-  // Renewals shows annual reselection products only (MAPD, PDP, ACA health).
-  // Ongoing products (Medigap, life, dental) and term products are excluded.
-  let query = supabase
+export default async function ReviewsPage() {
+  const { data, error } = await supabase
     .from("policies")
     .select(`
       id,
@@ -72,80 +52,45 @@ export default async function RenewalsPage({
       plan_name,
       product_type,
       status,
-      renewal_date,
+      review_due_date,
       expected_commission_amount,
       people ( first_name, last_name ),
       households ( id, name )
     `)
-    .eq("renewal_behavior", "annual_reselection")
+    .eq("renewal_behavior", "ongoing")
     .in("status", ["active", "pending"])
-    .not("renewal_date", "is", null)
-    .order("renewal_date", { ascending: true });
-
-  if (status       !== "all") query = query.eq("status",       status);
-  if (product_type !== "all") query = query.eq("product_type", product_type);
-  if (carrier      !== "all") query = query.eq("carrier",      carrier);
-
-  if (renewal_window !== "all") {
-    const todayStr  = new Date().toISOString().split("T")[0];
-    const daysAhead = parseInt(renewal_window, 10);
-    const futureStr = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
-    query = query.gte("renewal_date", todayStr).lte("renewal_date", futureStr);
-  }
-
-  // ── fetch in parallel ─────────────────────────────────────────────────────
-  const [
-    { data, error },
-    { data: carrierRows },
-  ] = await Promise.all([
-    query.returns<RenewalRow[]>(),
-    supabase
-      .from("policies")
-      .select("carrier")
-      .eq("renewal_behavior", "annual_reselection")
-      .order("carrier"),
-  ]);
+    .not("review_due_date", "is", null)
+    .order("review_due_date", { ascending: true })
+    .returns<ReviewRow[]>();
 
   if (error) {
     return (
       <div className="p-8 text-sm text-red-600">
-        Failed to load renewals: {error.message}
+        Failed to load reviews: {error.message}
       </div>
     );
   }
 
-  const rows     = data ?? [];
-  const carriers = [...new Set((carrierRows ?? []).map((r) => r.carrier))];
+  const rows = data ?? [];
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-semibold">Renewals</h1>
+      <h1 className="text-2xl font-semibold">Reviews</h1>
       <p className="mt-1 text-sm text-slate-500">
-        {rows.length} polic{rows.length !== 1 ? "ies" : "y"} · annual
-        reselection only · sorted soonest first
+        {rows.length} polic{rows.length !== 1 ? "ies" : "y"} due for review ·
+        sorted soonest first
       </p>
       <p className="mt-0.5 text-xs text-slate-400">
-        Shows active and pending Medicare Advantage, Part D, and health policies
-        that require annual reselection. Ongoing products (Medigap, life,
-        dental) are not shown here.
+        Ongoing policies — Medigap, life, dental, and ancillary — that need
+        periodic check-ins. Annual reselection products (Medicare Advantage,
+        Part D, health) are tracked on the Renewals page instead.
       </p>
 
-      {/* filters */}
-      <div className="mt-4">
-        <RenewalFilters
-          carriers={carriers}
-          current={{ status, product_type, carrier, renewal_window }}
-        />
-      </div>
-
-      {/* table */}
-      <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-              <th className="px-4 py-3">Renewal Date</th>
+              <th className="px-4 py-3">Review Due</th>
               <th className="px-4 py-3">Household</th>
               <th className="px-4 py-3">Policyholder</th>
               <th className="px-4 py-3">Carrier</th>
@@ -157,11 +102,8 @@ export default async function RenewalsPage({
           <tbody className="divide-y divide-slate-100">
             {rows.length === 0 ? (
               <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-6 text-center text-slate-400"
-                >
-                  No policies match the current filters.
+                <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
+                  No policies due for review.
                 </td>
               </tr>
             ) : (
@@ -174,7 +116,7 @@ export default async function RenewalsPage({
                 return (
                   <tr key={row.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-medium tabular-nums text-slate-900">
-                      {formatDate(row.renewal_date)}
+                      {formatDate(row.review_due_date)}
                     </td>
                     <td className="px-4 py-3 text-slate-700">
                       {row.households?.name ?? (
